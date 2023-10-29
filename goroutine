@@ -62,3 +62,48 @@ import(
 	runtime.GOMAXPROCS(num)
 	fmt.Println("num=",num)
 }//go1.8以后，默认让程序运行在多个核上，可以不用设置
+
+并行导致的资源竞争问题
+解决方法一：使用全局变量加锁同步//适用于低水平的协程
+	例子：使用协程解决阶乘问题
+	代码实现：
+	package main
+
+import (
+	"fmt"
+	"sync"
+	"time"
+)
+
+var (
+	myMap = make(map[int]int, 10)
+	lock  sync.Mutex
+)
+
+func test(n int) {
+	res := 1
+	for i := 1; i <= n; i++ {
+		res *= i
+	}
+	//加锁
+	lock.Lock()
+	myMap[n] = res
+	//解锁
+	lock.Unlock()
+}
+
+func main() {
+	for i := 1; i <= 10; i++ {
+		go test(i)
+	}
+
+	time.Sleep(time.Second * 10)
+	lock.Lock()
+	for i, v := range myMap {
+		fmt.Printf("map[%v]=%v\n", i, v)
+	}
+	lock.Unlock()
+}
+
+	
+解决方法二：管道//适用于高水平的协程
