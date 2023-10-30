@@ -67,3 +67,24 @@ func main() {
 		fmt.Println("v=", v)
 	}
 }
+
+使用注意事项：
+1.只能存放指定的数据类型
+2.channel的数据存放满后，就不能再放入了
+3.如果从channel取出数据后，可以继续放入
+4.在没有使用协程的情况下，如果channel数据取完了，再取就会报dead lock
+5.默认情况下管道是双向的，var chan1 chan int//表示可读可写
+6.声明为只可写 var chan2 chan<-int
+7.声明只可读 var chan3<-chan int
+8.使用select可以解决从管道取数据的阻塞问题
+//select{
+	case 变量:=<-管道
+	语句
+	...
+	default:
+	语句
+}
+9.goroutine中可以使用recover，解决协程中出现panic，导致程序崩溃问题
+
+
+阻塞：如果只是向管道写入数据，而没有读取就会出现阻塞而dead lock
