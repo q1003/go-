@@ -1,0 +1,81 @@
+1.反射可以运行时动态获取变量的各种信息，比如变量的类型，类别
+2.如果是结构体变量，还可以获取结构体本身的信息（包括结构体的字段，方法）
+3.通过反射，可以修改变量的值，可以调用关联的方法。
+4.使用反射，需要(import"reflect")
+5.变量、interface{}和reflect.Value是可以相互转换的
+
+反射中重要的函数
+1.reflect.TypeOf(变量名)，获取变量的类型，返回reflect.Type类型
+2.reflect.Value(变量名)，获取变量的值，返回reflect.Value类型reflect.Value是一个结构体类型。通过reflect.Value可以获取到关于该变量的很多信息。
+
+反射对基本数据类型的代码例子：
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func reflectTest1(b interface{}) {
+	//通过反射获取的传入的变量的type和kind
+	//1.获取relfect.Type
+	rTyp := reflect.TypeOf(b)
+	fmt.Println(rTyp)
+
+	//2.获得reflect.Value
+	rVal := reflect.ValueOf(b)
+	fmt.Println("rVal=", rVal) //这里获取到的100不是真正的100，
+	n2 := 2 + rVal.Int()       //这样的话rVal就可以像int 类型的100一样可以使用了
+	fmt.Println(n2)
+
+	//将rVal转成interface{}
+	iV := rVal.Interface()
+	//下面将interface{}通过断言转化成需要的类型
+	num2 := iV.(int)
+	fmt.Println("num2=", num2)
+
+}
+
+func main() {
+	//演示对（基本数据类型，interface{}，reflect.Value）进行反射的基本操作
+
+	//定义一个int
+	var num int = 100
+	reflectTest1(num)
+
+}
+
+对结构体的反射代码实现：
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func reflectTest1(b interface{}) {
+	rTyp := reflect.TypeOf(b)
+	fmt.Println(rTyp)
+	rVal := reflect.ValueOf(b)
+	iV := rVal.Interface()
+	fmt.Printf("iv=%v type=%T\n", iV, iV)
+	//带检测的类型断言,当然也可以用swtich的断言类型来做的更加灵活
+	stu, ok := iV.(Student)
+	if ok {
+		fmt.Printf("stu.Name=%v\n", stu.Name)
+	}
+}
+
+type Student struct {
+	Name string
+	Age  int
+}
+
+func main() {
+	stu := Student{
+		Name: "tom",
+		Age:  20,
+	}
+	reflectTest1(stu)
+
+}
