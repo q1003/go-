@@ -1,0 +1,32 @@
+Go 提供了一系列用于创建 Web 服务器的标准库，而且通过 Go 创建一个服务器的步骤非常简单，只要通过 net/http 包调ListenAndServe 函数并传入网络地址以及负责处理请求的处理器( handler )作为参数就可以了。如果网络地址参数为空字符串，那么服务器默认使用 80 端口进行网络连接；如果处理器参数为 nil，那么服务器将使用默认的路复用器DefaultServeMux，当然，我们也可以通过调用 NewServeMux 函数创建一个多路复用器。多路复用器接收到用户的请求之后根据请求的 URL 来判断使用哪个处理器来处理请求，找到后就会重定向到对应的处理器来处理请求。
+
+在vscode中使用终端执行命令：
+1.输入 go build main.go
+2.输入./main.exe
+
+1.使用处理器函数处理请求
+package main
+import (
+	"fmt"
+	"net/http"
+)
+
+/*
+创建处理器函数，函数名可以任意
+参数列表一定要为w http.ResponseWriter, r *http.Request
+*/
+func handler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintln(w, "Hello World!", r.URL.Path)
+}
+
+func main() {
+	http.HandleFunc("/", handler)//它可以将一个带有正确签名（w http.ResponseWriter, r *http.Request）的函数 f 转换成一个带有方法 f 的 Handler。
+
+
+	/*创建路由，第一个参数是路由表达式，也就是请求路径，
+	第二个参数是一个函数类型，也就是真正处理请求的函数
+	*/
+	http.ListenAndServe(":8080", nil)
+	/*ListenAndServe监听TCP地址，并且会使用handler参数调用Serve函数处理接收到的连接，handler
+	参数一般会设置为nil，此时会使用默认的多路复用器*/
+}
