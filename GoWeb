@@ -81,3 +81,24 @@ func main() {
 	//http.ListenAndServe(":8080", nil)
 
 }
+
+4.在创建服务器时，我们还可以通过 NewServeMux 方法创建一个多路复用器
+package main
+
+import (
+	"fmt"
+	"net/http"
+)
+
+func handler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintln(w, "通过自己创建的多路复用器处理请求", r.URL.Path)
+}
+
+func main() {
+	//自己创建多路复用器
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", handler)
+
+	http.ListenAndServe(":8080", mux)
+
+}
