@@ -30,3 +30,25 @@ func main() {
 	/*ListenAndServe监听TCP地址，并且会使用handler参数调用Serve函数处理接收到的连接，handler
 	参数一般会设置为nil，此时会使用默认的多路复用器*/
 }
+
+2.使用处理器处理请求
+package main
+
+import (
+	"fmt"
+	"net/http"
+)
+
+type MyHandler struct{}
+
+func (m *MyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintln(w, "通过自己创建的处理器处理请求", r.URL.Path)
+}
+
+func main() {
+	myHandler := MyHandler{}
+	http.Handle("/", &myHandler)
+
+	http.ListenAndServe(":8080", nil)
+
+}
