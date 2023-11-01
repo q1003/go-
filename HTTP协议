@@ -1,1 +1,42 @@
+HTTP协议
+	HTTP 超文本传输协议 (HTTP-Hypertext transfer protocol)，是一个属于应用层的面向对象的协议，由于其简捷、快速的方式，适用于分布式超媒体信息系统。它于 1990年提出，经过几年的使用与发展，得到不断地完善和扩展。它是一种详细规定了浏览器和万维网服务器之间互相通信的规则，通过因特网传送万维网文档的数据传送协议。客户端与服务端通信时传输的内容我们称之为报文HTTP 就是一个通信规则，这个规则规定了客户端发送给服务器的报文格式，也规定了服务器发送给客户端的报文格式。实际我们要学习的就是这两种报文。客户端发送给服务器的称为”请求报文“，服务器发送给客户端的称为”响应报文“。
 
+	浏览器与服务器之间的通信过程要经历四个步骤
+浏览器与 WEB 服务器的连接过程是短暂的，每次连接只处理一个请求和响应。对每一个页面的访问，浏览器与 WEB 服务器都要建立一次单独的连接。浏览器到 WEB 服务器之间的所有通讯都是完全独立分开的请求和响应对。
+
+报文
+报文格式：
+请求首行（请求行）；
+请求头信息（请求头）；
+空行；
+请求体；
+
+
+get请求
+eg:
+GET /Hello/index.jsp HTTP/1.1
+Accept: */*
+Accept-Language: zh-CN
+User-Agent: Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.1; WOW64; 
+Trident/4.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; 
+Media Center PC 6.0; .NET4.0C; .NET4.0E)
+Accept-Encoding: gzip, deflate
+Host: localhost:8080
+Connection: Keep-Alive
+Cookie: JSESSIONID=C55836CDA892D9124C03CF8FE8311B15
+ Get 请求没有请求体，Post 请求才有请求体
+ GET /Hello/index.jsp HTTP/1.1 ： GET 请 求 ， 请 求 服 务 器 路 径 为
+Hello/index.jsp，协议为 1.1；
+ Host:localhost：请求的主机名为 localhost；
+ User-Agent: Mozilla/4.0 (compatible; MSIE 8.0…：与浏览器和 OS 相关的
+信息。有些网站会显示用户的系统版本和浏览器版本信息，这都是通过获取 UserAgent 头信息而来的；
+ Accept: */*：告诉服务器，当前客户端可以接收的文档类型， */*，就表示
+什么都可以接收；
+ Accept-Language: zh-CN：当前客户端支持的语言，可以在浏览器的工具
+选项中找到语言相关信息；
+ Accept-Encoding: gzip, deflate：支持的压缩格式。数据在网络上传递时，
+可能服务器会把数据压缩后再发送；
+ Connection: keep-alive：客户端支持的链接方式，保持一段时间链接，默
+认为 3000ms；
+ Cookie: JSESSIONID=369766FDF6220F7803433C0B2DE36D98：因为不是
+第一次访问这个地址，所以会在请求中把上一次服务器响应中发送过来的 Cookie在请求中一并发送过去。
