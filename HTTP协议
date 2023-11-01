@@ -69,3 +69,50 @@ username=admin
  Content-Length:13：请求体的长度，这里表示 13 个字节。
  keyword=hello：请求体内容！hello 是在表单中输入的数据，keyword 是表单
 字段的名字。
+
+响应报文
+报文格式：
+响应首行（响应行）；
+响应头信息（响应头）；
+空行；
+响应体；
+eg：
+HTTP/1.1 200 OK
+Server: Apache-Coyote/1.1
+Content-Type: text/html;charset=UTF-8
+Content-Length: 274
+Date: Tue, 07 Apr 2015 10:08:26 GMT
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" >
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Insert title here</title>
+</head>
+<body>
+<h1>Hello</h1>
+</body>
+</html>
+ HTTP/1.1 200 OK：响应协议为 HTTP1.1，状态码为 200，表示请求成功；
+ Server: Apache-Coyote/1.1：服务器的版本信息；
+ Content-Type: text/html;charset=UTF-8：响应体使用的编码为 UTF-8；
+ Content-Length: 274：响应体为 274 字节；
+ Date: Tue, 07 Apr 2015 10:08:26 GMT：响应的时间，这可能会有 8 小时的时
+区差；
+
+
+响应状态码
+状态码用来告诉 HTTP 客户端,HTTP 服务器是否产生了预期的 Response。HTTP/1.1
+协议中定义了 5 类状态码， 状态码由三位数字组成，第一个数字定义了响应的类
+别
+ 1XX 提示信息 - 表示请求已被成功接收，继续处理
+ 2XX 成功 - 表示请求已被成功接收，理解，接受
+ 3XX 重定向 - 要完成请求必须进行更进一步的处理
+ 4XX 客户端错误 - 请求有语法错误或请求无法实现
+ 5XX 服务器端错误 - 服务器未能实现合法的请求
+
+ 响应码对浏览器来说很重要，它告诉浏览器响应的结果，常见的状态码有：
+ 200：请求成功，浏览器会把响应体内容（通常是 html）显示在浏览器中；
+ 404：请求的资源没有找到，说明客户端错误的请求了不存在的资源；
+ 500：请求资源找到了，但服务器内部出现了错误；
+ 302：重定向，当响应码为 302 时，表示服务器要求浏览器重新再发一个请求，
+服务器会发送一个响应头 Location，它指定了新请求的 URL 地址；
