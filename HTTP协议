@@ -40,3 +40,32 @@ Hello/index.jsp，协议为 1.1；
 认为 3000ms；
  Cookie: JSESSIONID=369766FDF6220F7803433C0B2DE36D98：因为不是
 第一次访问这个地址，所以会在请求中把上一次服务器响应中发送过来的 Cookie在请求中一并发送过去。
+
+post请求
+eg：
+POST /Hello/target.html HTTP/1.1
+Accept: application/x-ms-application, image/jpeg, application/xaml+xml, 
+image/gif, image/pjpeg, application/x-ms-xbap, */*
+Referer: http://localhost:8080/Hello/
+Accept-Language: zh-CN
+User-Agent: Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.1; WOW64; 
+Trident/4.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; 
+Media Center PC 6.0; .NET4.0C; .NET4.0E)
+Content-Type: application/x-www-form-urlencoded
+Accept-Encoding: gzip, deflate
+Host: localhost:8080
+Content-Length: 14
+Connection: Keep-Alive
+Cache-Control: no-cache
+Cookie: JSESSIONID=774DA38C1B78AE288610D77621590345
+username=admin
+POST 请求要求将 form 标签的 method 的属性设置为 post
+ Referer: http://localhost:8080/hello/index.jsp：请求来自哪个页面，例如你在百
+度上点击链接到了这里，那么 Referer:http://www.baidu.com；如果你是在浏览器的地
+址栏中直接输入的地址，那么就没有 Referer 这个请求头了；
+ Content-Type: application/x-www-form-urlencoded：表单的数据类型，说明
+会使用 url 格式编码数据；url 编码的数据都是以“%”为前缀，后面跟随两位的 16 进
+制，例如“传智”这两个字使用 UTF-8 的 url 编码用为“%E4%BC%A0%E6%99%BA”；
+ Content-Length:13：请求体的长度，这里表示 13 个字节。
+ keyword=hello：请求体内容！hello 是在表单中输入的数据，keyword 是表单
+字段的名字。
