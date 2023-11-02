@@ -1,0 +1,8 @@
+Go 语言中的 database/sql 包定义了对数据库的一系列操作。database/sql/driver包定义了应被数据库驱动实现的接口，这些接口会被 sql 包使用。但是 Go 语言没有提供任何官方的数据库驱动，所以我们需要导入第三方的数据库驱动。不过我们连接数据库之后对数据库操作的大部分代码都使用 sql 包。
+	获取数据库的连接
+	代码演示
+	import (
+	"database/sql"
+	_ "github.com/go-sql-driver/mysql"
+	)
+	创建一个 db.go 文件，导入 database/sql 包以及第三方驱动包
