@@ -227,4 +227,50 @@ func (*Row) Scan方法：
 func (r *Row) Scan(dest ...interface{}) error
 Scan将该行查询结果各列分别保存进dest参数指定的值中。如果该查询匹配多行，Scan会使用第一行结果并丢弃其余各行。如果没有匹配查询的行，Scan会返回ErrNoRows。
 
+获取多条记录
+从数据库中查询出所有记录
+代码实现：func (user *User) GetUsers() ([]*User, error) {
+	//写sql语句
+	sqlStr := "select id,username,password,email from users"
+	//执行
+	rows, err := utils.Db.Query(sqlStr)
+	if err != nil {
+		return nil, err
+	}
+	//创建User切片
+	var users []*User
+	for rows.Next() {
+		var id int
+		var username string
+		var password string
+		var email string
+		err := rows.Scan(&id, &username, &password, &email)
+		if err != nil {
+			return nil, err
+		}
+		u := &User{
+			ID:       id,
+			Username: username,
+			Password: password,
+			Email:    email,
+		}
+		users = append(users, u)
+	}
+	return users, nil
+}
+type Rows结构体
+type Rows struct {
+    // 内含隐藏或非导出字段
+}
+Rows是查询的结果。它的游标指向结果集的第零行，使用Next方法来遍历各行结果
 
+func (*Rows) Scan方法：
+func (rs *Rows) Scan(dest ...interface{}) error
+Scan将当前行各列结果填充进dest指定的各个值中。
+如果某个参数的类型为*[]byte，Scan会保存对应数据的拷贝，该拷贝为调用者所有，可以安全的,修改或无限期的保存。如果参数类型为*RawBytes可以避免拷贝；参见RawBytes的文档获取其使用的约束。
+如果某个参数的类型为*interface{}，Scan会不做转换的拷贝底层驱动提供的值。如果值的类型为[]byte，会进行数据的拷贝，调用者可以安全使用该值。
+
+func (*Rows) Next方法：
+func (rs *Rows) Next() bool
+Next准备用于Scan方法的下一行结果。如果成功会返回真，如果没有下一行或者出现错误会返回假。Err应该被调用以区分这两种情况。
+每一次调用Scan方法，甚至包括第一次调用该方法，都必须在前面先调用Next方法。
