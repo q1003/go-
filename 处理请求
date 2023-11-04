@@ -202,3 +202,197 @@ func main() {
 
 	http.ListenAndServe(":8080", nil)
 }
+
+获取请求体中的信息
+	请求和响应的主体都是有 Request 结构中的 Body 字段表示，这个字段的类型是io.ReadCloser 接口，该接口包含了 Reader 接口和 Closer 接口，Reader 接口拥有 Read方法，Closer 接口拥有 Close 方法
+
+type ReadCloser结构体
+type ReadCloser interface {
+    Reader
+    Closer
+}
+ReadCloser接口聚合了基本的读取和关闭操作。
+
+type Reader结构体
+type Reader interface {
+    Read(p []byte) (n int, err error)
+}
+Reader接口用于包装基本的读取方法。
+Read方法读取len(p)字节数据写入p。它返回写入的字节数和遇到的任何错误。即使Read方法返回值n < len(p)，本方法在被调用时仍可能使用p的全部长度作为暂存空间。如果有部分可用数据，但不够len(p)字节，Read按惯例会返回可以读取到的数据，而不是等待更多数据。当Read在读取n > 0个字节后遭遇错误或者到达文件结尾时，会返回读取的字节数。它可能会在该次调用返回一个非nil的错误，或者在下一次调用时返回0和该错误。一个常见的例子，Reader接口会在输入流的结尾返回非0的字节数，返回值err == EOF或err == nil。但不管怎样，下一次Read调用必然返回(0, EOF)。调用者应该总是先处理读取的n > 0字节再处理错误值。这么做可以正确的处理发生在读取部分数据后的I/O错误，也能正确处理EOF事件。如果Read的某个实现返回0字节数和nil错误值，表示被阻碍；调用者应该将这种情况视为未进行操作。
+
+1) 由于 GET 请求没有请求体，所以我们需要在 HTML 页面中创建一个 form 表单，通
+过指定 method=”post”来发送一个 POST 请求
+a) 表单
+<form action="http://localhost:8080/getBody" method="POST">
+ 用户名： <input type="text" name="username" 
+value="hanzong"><br/>
+ 密 码 ： <input type="password" name="password" 
+value="666666"><br/>
+ <input type="submit">
+ </form>
+
+b) 服务器处理请求的代码
+package main
+
+import (
+	"fmt"
+	"net/http"
+)
+
+// 创建处理器函数
+func handler(w http.ResponseWriter, r *http.Request) {
+	//获取请求体中内容的长度
+	len := r.ContentLength
+	//创建byte切片
+	body := make([]byte, len)
+	//将请求体中的内容读到body中
+	r.Body.Read(body)
+	//在浏览器上面显示请求体中的内容
+	fmt.Fprintln(w, "请求体中的内容有：", string(body))
+}
+
+func main() {
+	http.HandleFunc("/hello", handler)
+
+	http.ListenAndServe(":8080", nil)
+}
+
+
+获取请求参数
+	通过 net/http 库中的 Request 结构的字段以及方法获取请求 URL 后面的请求参数以及 form 表单中提交的请求参数
+
+ Form 字段 
+1) 类型是 url.Values 类型，Form 是解析好的表单数据，包括 URL 字段的 query参数和 POST 或 PUT 的表单数据。
+type Values结构体
+type Values map[string][]string
+Values将建映射到值的列表。它一般用于查询的参数和表单的属性。不同于http.Header这个字典类型，Values的键是大小写敏感的。
+2) Form 字段只有在调用 Request 的 ParseForm 方法后才有效。在客户端，会忽略请求中的本字段而使用 Body 替代
+func (*Request) ParseForm方法
+func (r *Request) ParseForm() error
+ParseForm解析URL中的查询字符串，并将解析结果更新到r.Form字段。对于POST或PUT请求，ParseForm还会将body当作表单解析，并将结果既更新到r.PostForm也更新到r.Form。解析结果中，POST或PUT请求主体要优先于URL查询字符串（同名变量，主体的值在查询字符串的值前面）。如果请求的主体的大小没有被MaxBytesReader函数设定限制，其大小默认限制为开头10MB。ParseMultipartForm会自动调用ParseForm。重复调用本方法是无意义的。
+代码实例：
+服务器端代码：
+package main
+
+import (
+	"fmt"
+	"net/http"
+)
+
+// 创建处理器函数
+func handler(w http.ResponseWriter, r *http.Request) {
+	//解析表单，在调用rForm之前必须执行该操作
+	r.ParseForm()
+	//获取请求参数
+	//如果form表单的action属性的URL地址中也有与form表单	参数名相同的请求参数
+	//那么参数值都可以得到，并且form表单中的参数值在URL的	参数值的前面
+	fmt.Fprintln(w, "请求参数有：", r.Form)
+}
+
+func main() {
+	http.HandleFunc("/hello", handler)
+
+	http.ListenAndServe(":8080", nil)
+}
+
+
+ PostForm 字段 
+1) 类型也是 url.Values 类型，用来获取表单中的请求参数
+代码：
+package main
+
+import (
+	"fmt"
+	"net/http"
+)
+
+// 创建处理器函数
+func handler(w http.ResponseWriter, r *http.Request) {
+	//解析表单，在调用rForm之前必须执行该操作
+	r.ParseForm()
+	//获取请求参数
+	//如果form表单的action属性的URL地址中也有与form表单参数名相同的请求参数
+	//那么参数值都可以得到，并且form表单中的参数值在URL的参数值的前面
+	//fmt.Fprintln(w, "请求参数有：", r.Form)
+	fmt.Fprintln(w, "POST请求的form表单中的请求参数有：", r.PostForm)
+}
+
+func main() {
+	http.HandleFunc("/hello", handler)
+
+	http.ListenAndServe(":8080", nil)
+}
+2) 但是 PostForm 字段只支持 application/x-www-form-urlencoded 编码，如果form 表单的 enctype 属性值为multipart/form-data，那么使用 PostForm 字段无法获取表单中的数据，此时需要使用 MultipartForm 字段
+
+
+ FormValue 方法和 PostFormValue 方法 
+1) FormValue 方法
+a) 可以通过 FormValue 方法快速地获取某一个请求参数，该方法调用之前会自动调用 ParseMultipartForm 和 ParseForm 方法对表单进行解析
+func (*Request) FormValue方法
+func (r *Request) FormValue(key string) string
+FormValue返回key为键查询r.Form字段得到结果[]string切片的第一个值。POST和PUT主体中的同名参数优先于URL查询字符串。如果必要，本函数会隐式调用ParseMultipartForm和ParseForm。
+代码
+func handler(w http.ResponseWriter, r *http.Request) {
+//获取请求参数
+fmt.Fprintln(w, "请求参数username的值为：", r.FormValue("username"))
+}
+
+PostFormValue 方法
+a) 可以通过 PostFormValue 方法快速地获取表单中的某一个请求参数，该
+方法调用之前会自动调用 ParseMultipartForm 和 ParseForm 方法对表单
+进行解析
+func (*Request) PostFormValue方法
+func (r *Request) PostFormValue(key string) string
+PostFormValue返回key为键查询r.PostForm字段得到结果[]string切片的第一个值。如果必要，本函数会隐式调用ParseMultipartForm和ParseForm。
+代码
+func handler(w http.ResponseWriter, r *http.Request) {
+//获取请求参数
+fmt.Fprintln(w, "请求参数 username 的值为：", r.PostFormValue("username"))
+}
+
+
+给客户端响应
+使用 http.ResponseWriter 来给用户响应
+type ResponseWriter结构体
+type ResponseWriter interface {
+    // Header返回一个Header类型值，该值会被WriteHeader方法发送。
+    // 在调用WriteHeader或Write方法后再改变该对象是没有意义的。
+    Header() Header
+    // WriteHeader该方法发送HTTP回复的头域和状态码。
+    // 如果没有被显式调用，第一次调用Write时会触发隐式调用WriteHeader(http.StatusOK)
+    // WriterHeader的显式调用主要用于发送错误码。
+    WriteHeader(int)
+    // Write向连接中写入作为HTTP的一部分回复的数据。
+    // 如果被调用时还未调用WriteHeader，本方法会先调用WriteHeader(http.StatusOK)
+    // 如果Header中没有"Content-Type"键，
+    // 本方法会使用包函数DetectContentType检查数据的前512字节，将返回值作为该键的值。
+    Write([]byte) (int, error)
+}
+ResponseWriter接口被HTTP处理器用于构造HTTP回复。
+
+1) 给客户端响应一个字符串
+处理器中的代码
+func handler(w http.ResponseWriter, r *http.Request) {
+w.Write([]byte("你的请求我已经收到"))
+}
+2）给客户端响应 JSON 格式的数据
+服务器端代码
+func handler(w http.ResponseWriter, r *http.Request) {
+//设置响应头中内容的类型
+w.Header().Set("Content-Type", "application/json")
+user := User{
+ID: 1,
+Username: "admin",
+Password: "123456",
+}
+//将 user 转换为 json 格式
+json, _ := json.Marshal(user)
+w.Write(json)
+}
+3）让客户端重定向
+处理器端代码
+func handler(w http.ResponseWriter, r *http.Request) {
+//以下操作必须要在 WriteHeader 之前进行
+w.Header().Set("Location", "https:www.baidu.com")
+w.WriteHeader(302)
+}
