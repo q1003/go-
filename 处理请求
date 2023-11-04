@@ -94,3 +94,111 @@ type Request struct {
     TLS *tls.ConnectionState
 }
 Request类型代表一个服务端接受到的或者客户端发送出去的HTTP请求。
+
+Request各字段的意义和用途在服务端和客户端是不同的。除了字段本身上方文档，还可参见Request.Write方法和RoundTripper接口的文档。
+
+获取请求URL
+	Request 结构中的 URL 字段用于表示请求行中包含的 URL，改字段是一个指向url.URL 结构的指针，让我们来看一下 URL 结构
+type URL struct {
+    Scheme   string
+    Opaque   string    // 编码后的不透明数据
+    User     *Userinfo // 用户名和密码信息
+    Host     string    // host或host:port
+    Path     string
+    RawQuery string // 编码后的查询字符串，没有'?'
+    Fragment string // 引用的片段（文档位置），没有'#'
+}
+URL类型代表一个解析后的URL（或者说，一个URL参照）。URL基本格式如下：
+scheme://[userinfo@]host/path[?query][#fragment]
+scheme后不是冒号加双斜线的URL被解释为如下格式：
+scheme:opaque[?query][#fragment]
+注意路径字段是以解码后的格式保存的，如/%47%6f%2f会变成/Go/。这导致我们无法确定Path字段中的斜线是来自原始URL还是解码前的%2f。除非一个客户端必须使用其他程序/函数来解析原始URL或者重构原始URL，这个区别并不重要。此时，HTTP服务端可以查询req.RequestURI，而HTTP客户端可以使用URL{Host: "example.com", Opaque: "//example.com/Go%2f"}代替{Host: "example.com", Path: "/Go/"}。
+
+1) Path 字段、
+ 获取请求的 URL
+ 例如：http://localhost:8080/hello?username=admin&password=123456
+i. 通过 r.URL.Path 只能得到 /hello
+2) RawQuery 字段
+ 获取请求的 URL 后面?后面的查询字符串
+ 例如：http://localhost:8080/hello?username=admin&password=123456
+i. 通过 r.URL.RawQuery 得到的是 username=admin&password=123456
+代码实例：
+package main
+
+import (
+	"fmt"
+	"net/http"
+)
+
+// 创建处理器函数
+func handler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintln(w, "你发送的请求的请求地址是：", r.URL.Path)
+	fmt.Fprintln(w, "你发送的请求的请求地址后的查询字符串是：", r.URL.RawQuery)
+}
+
+func main() {
+	http.HandleFunc("/hello", handler)
+
+	http.ListenAndServe(":8080", nil)
+}
+
+
+获取请求头中的信息
+	通过 Request 结果中的 Header 字段用来获取请求头中的所有信息，Header 字段的类型是 Header 类型，而 Header 类型是一个 map[string][]string，string 类型的 key，string 切片类型的值。下面是 Header 类型及它的方法：
+type Header map[string][]string
+Header代表HTTP头域的键值对。
+
+func (Header) Get方法：
+func (h Header) Get(key string) string
+Get返回键对应的第一个值，如果键不存在会返回""。如要获取该键对应的值切片，请直接用规范格式的键访问map。
+
+func (Header) Set方法：
+func (h Header) Set(key, value string)
+Set添加键值对到h，如键已存在则会用只有新值一个元素的切片取代旧值切片。
+
+func (Header) Add方法：
+func (h Header) Add(key, value string)
+Add添加键值对到h，如键已存在则会将新的值附加到旧值切片后面。
+
+func (Header) Del方法：
+func (h Header) Del(key string)
+Del删除键值对。
+
+func (Header) Write方法：
+func (h Header) Write(w io.Writer) error
+Write以有线格式将头域写入w。
+
+1) 获取请求头中的所有信息
+ r.Header
+2) 获取请求头中的某个具体属性的值，如获取 Accept-Encoding 的值
+ 方式一：r.Header[“Accept-Encoding”]
+i. 得到的是一个字符串切片
+ii. 结果
+[gzip, deflate, br]
+
+ 方式二：r.Header.Get(“Accept-Encoding”)
+i. 得到的是字符串形式的值，多个值使用逗号分隔
+ii. 结果
+gzip, deflate, br
+代码实例：
+package main
+
+import (
+	"fmt"
+	"net/http"
+)
+
+// 创建处理器函数
+func handler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintln(w, "你发送的请求的请求地址是：", r.URL.Path)
+	fmt.Fprintln(w, "你发送的请求的请求地址后的查询字符串是：", r.URL.RawQuery)
+	fmt.Fprintln(w, "请求头中的所有信息有：", r.Header)
+	fmt.Fprintln(w, "请求头中Accept-Encoding的信息有：", r.Header["Accept-Encoding"])
+	fmt.Fprintln(w, "请求头中Accept-Encoding的属性值有：", r.Header.Get("Accept-Encoding"))
+}
+
+func main() {
+	http.HandleFunc("/hello", handler)
+
+	http.ListenAndServe(":8080", nil)
+}
