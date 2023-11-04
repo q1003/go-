@@ -185,3 +185,46 @@ Email: "admin5@atguigu.com",
 //将 user 添加到数据库中
 user.AddUser()
 }
+
+获取一条记录
+根据用户id从数据库中获取一条记录
+代码实现：
+func (user *User) GetUserByID() (*User, error) {
+	//写sql语句
+	sqlStr := "select id,username,password,email from users where id=?"
+	//执行
+	row := utils.Db.QueryRow(sqlStr, user.ID)
+	//声明
+	var id int
+	var username string
+	var password string
+	var email string
+	//将各个字段中的值读到以上三个变量中
+	err := row.Scan(&id, &username, &password, &email)
+	if err != nil {
+		return nil, err
+	}
+	//将三个变量的值赋给User结构体
+	u := &User{
+		ID:       id,
+		Username: username,
+		Password: password,
+		Email:    email,
+	}
+	return u, nil
+}
+type Row结构体
+type Row struct {
+    // 内含隐藏或非导出字段
+}
+QueryRow方法返回Row，代表单行查询结果。
+
+func (*DB) QueryRow方法：
+func (db *DB) QueryRow(query string, args ...interface{}) *Row
+QueryRow执行一次查询，并期望返回最多一行结果（即Row）。QueryRow总是返回非nil的值，直到返回值的Scan方法被调用时，才会返回被延迟的错误。
+
+func (*Row) Scan方法：
+func (r *Row) Scan(dest ...interface{}) error
+Scan将该行查询结果各列分别保存进dest参数指定的值中。如果该查询匹配多行，Scan会使用第一行结果并丢弃其余各行。如果没有匹配查询的行，Scan会返回ErrNoRows。
+
+
