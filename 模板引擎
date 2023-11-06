@@ -1,0 +1,51 @@
+Go 为我们提供了 text/template 库和 html/template 库这两个模板引擎，模板引擎通过将数据和模板组合在一起生成最终的 HTML，而处理器负责调用模板引擎并将引擎生成的 HTMl 返回给客户端。
+Go 的模板都是文本文档（其中 Web 应用的模板通常都是 HTML），它们都嵌入了一些称为动作的指令。从模板引擎的角度来说，模板就是嵌入了动作的文本（这些文本通常包含在模板文件里面），而模板引擎则通过分析并执行这些文本来生成出另外一些文本。
+	使用 Go 的 Web 模板引擎需要以下两个步骤:
+(1) 对文本格式的模板源进行语法分析，创建一个经过语法分析的模板结构，其中模板源既可以是一个字符串，也可以是模板文件中包含的内容。
+(2 )执行经过语法分析的模板，将 ResponseWriter 和模板所需的动态数据传递给模板引擎，被调用的模板引擎会把经过语法分析的模板和传入的数据结合起来，生成出最终的 HTML，并将这些 HTML 传递给ResponseWriter
+	解析模板：
+1.ParseFiles函数
+func ParseFiles(filenames ...string) (*Template, error)
+ParseFiles函数创建一个模板并解析filenames指定的文件里的模板定义。返回的模板的名字是第一个文件的文件名（不含扩展名），内容为解析后的第一个文件的内容。至少要提供一个文件。如果发生错误，会停止解析并返回nil。
+
+ 当我们调用 ParseFiles 函数解析模板文件时，Go 会创建一个新的模板，并将给定的模板文件的名字作为新模板的名字，如果该函数中传入了多个文件名，那么也只会返回一个模板，而且以第一个文件的文件名作为模板的名字，至于其他文件对应的模板则会被放到一个 map 中。
+t, _ := template.ParseFiles("hello.html")
+以上代码相当于调用 New 函数创建一个新模板，然后再调用 template 的ParseFiles 方法：
+t := template.New("hello.html")
+t, _ = t.ParseFiles("hello.html")
+
+func New函数
+func New(name string) *Template
+创建一个名为name的模板。
+
+func (*Template) ParseFiles方法
+func (t *Template) ParseFiles(filenames ...string) (*Template, error)
+ParseGlob方法解析filenames指定的文件里的模板定义并将解析结果与t关联。如果发生错误，会停止解析并返回nil，否则返回(t, nil)。至少要提供一个文件。
+
+我们在解析模板时都没有对错误进行处理，Go 提供了一个 Must 函数专
+门用来处理这个错误。Must 函数可以包裹起一个函数，被包裹的函数会返回一个指向模板的指针和一个错误，如果错误不是 nil，那么 Must 函数将产生一个 panic。
+func Must函数
+func Must(t *Template, err error) *Template
+Must函数用于包装返回(*Template, error)的函数/方法调用，它会在err非nil时panic，一般用于变量初始化
+t := template.Must(template.ParseFiles("hello.html"))
+
+func ParseGlob函数
+func ParseGlob(pattern string) (*Template, error)
+ParseGlob创建一个模板并解析匹配pattern的文件（参见glob规则）里的模板定义。返回的模板的名字是第一个匹配的文件的文件名（不含扩展名），内容为解析后的第一个文件的内容。至少要存在一个匹配的文件。如果发生错误，会停止解析并返回nil。ParseGlob等价于使用匹配pattern的文件的列表为参数调用ParseFiles。
+
+	执行模板
+1.Execute方法
+func (*Template) Execute方法
+func (t *Template) Execute(wr io.Writer, data interface{}) error
+Execute方法将解析好的模板应用到data上，并将输出写入wr。如果执行时出现错误，会停止执行，但有可能已经写入wr部分数据。模板可以安全的并发执行。
+注意：如果只有一个模板文件，调用这个方法总是可行的；但是如果有多个模板文件，调用这个方法只能得到第一个模板
+
+2.通过 ExecuteTemplate 方法
+func (*Template) ExecuteTemplate方法
+func (t *Template) ExecuteTemplate(wr io.Writer, name string, data interface{}) error
+ExecuteTemplate方法类似Execute，但是使用名为name的t关联的模板产生输出。
+t, _ := template.ParseFiles("hello.html", "hello2.html")
+
+变量 t 就是一个包含了两个模板的模板集合，第一个模板的名字是
+hello.html,第二个模板的名字是 hello2.html,如果直接调用 Execute 方法，则只有模板 hello.html 会被执行，如何想要执行模板 hello2.html，则需要调用 ExecuteTemplate 方法
+t.ExecuteTemplate(w, "hello2.html", "我要在 hello2.html 中显示")
