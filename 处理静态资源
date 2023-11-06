@@ -1,0 +1,25 @@
+对于 HTML 页面中的 css 以及 js 等静态文件，需要使用使用 net/http 包下的以下
+方法来处理
+1) StripPrefix 函数
+func StripPrefix(prefix string, h Handler) Handler
+StripPrefix返回一个处理器，该处理器会将请求的URL.Path字段中给定前缀prefix去除后再交由h处理。StripPrefix会向URL.Path字段中没有给定前缀的请求回复404 page not found。
+
+2) FileServer 函数
+func FileServer(root FileSystem) Handler
+FileServer返回一个使用FileSystem接口root提供文件访问服务的HTTP处理器。
+
+type FileSystem
+type FileSystem interface {
+    Open(name string) (File, error)
+}
+FileSystem接口实现了对一系列命名文件的访问。文件路径的分隔符为'/'，不管主机操作系统的惯例如何。
+
+type Dir
+type Dir string
+Dir使用限制到指定目录树的本地文件系统实现了http.FileSystem接口。空Dir被视为"."，即代表当前目录。
+
+func (Dir) Open
+func (d Dir) Open(name string) (File, error)
+
+eg：//设置处理静态资源
+http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("/bookstore/bookstore0612/views/static"))))
