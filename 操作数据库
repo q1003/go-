@@ -6,7 +6,6 @@
 	获取数据库的连接
 	代码演示
 	创建一个 db.go 文件，导入 database/sql 包以及第三方驱动包
-
 package utils
 import (
 	"database/sql"
