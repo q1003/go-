@@ -2,6 +2,7 @@
 2.多goroutine访问时，不需要加锁，也就是说channel本身就是线程安全的
 3.channel是有类型的，一个string的channel只能存放一个string类型的数据结构
 
+
 1）定义/声明
 var 变量名 chan 数据类型
 注意：channel是引用类型，必须初始化后才能写入数据，管道是有类型的
