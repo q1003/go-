@@ -3,7 +3,6 @@
 2.常量在定义的时候就必须初始化
 3.常量不可以修改
 4.常量只能修饰bool，数值类型（int，float），string类型
-
 const{
 	a=iota
 	b
