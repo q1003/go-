@@ -1,0 +1,110 @@
+会话控制
+	HTTP 是无状态协议，服务器不能记录浏览器的访问状态，也就是说服务器不能区分中两次请求是否由一个客户端发出。这样的设计严重阻碍的 Web 程序的设计。如：在我们进行网购时，买了一条裤子，又买了一个手机。由于 http 协议是无状态的，如果不通过其他手段，服务器是不能知道用户到底买了什么。而 Cookie 就是解决方案之一。
+
+Cookie简介
+	Cookie 实际上就是服务器保存在浏览器上的一段信息。浏览器有了 Cookie 之后，每次向服务器发送请求时都会同时将该信息发送给服务器，服务器收到请求后，就可以根据该信息处理请求。
+type Cookie
+type Cookie struct {
+    Name       string
+    Value      string
+    Path       string
+    Domain     string
+    Expires    time.Time
+    RawExpires string
+    // MaxAge=0表示未设置Max-Age属性
+    // MaxAge<0表示立刻删除该cookie，等价于"Max-Age: 0"
+    // MaxAge>0表示存在Max-Age属性，单位是秒
+    MaxAge   int
+    Secure   bool
+    HttpOnly bool
+    Raw      string
+    Unparsed []string // 未解析的“属性-值”对的原始文本
+}
+Cookie代表一个出现在HTTP回复的头域中Set-Cookie头的值里或者HTTP请求的头域中Cookie头的值里的HTTP cookie。
+
+ Cookie 的运行原理 
+1) 第一次向服务器发送请求时在服务器端创建 Cookie
+2) 将在服务器端创建的 Cookie 以响应头的方式发送给浏览器
+3) 以后再发送请求浏览器就会携带着该 Cookie
+4) 服务器得到 Cookie 之后根据 Cookie 的信息来区分不同的用户
+
+
+创建 Cookie 并将它发送给浏览器 
+1) 在服务器创建 Cookie 并将它发送给浏览器
+ 服务器端代码
+func handler(w http.ResponseWriter, r *http.Request) {
+cookie1 := http.Cookie{
+Name: "user1",
+Value: "admin",
+HttpOnly: true,
+}
+cookie2 := http.Cookie{
+Name: "user2",
+Value: "superAdmin",
+HttpOnly: true,
+}
+//将 Cookie 发送给浏览器,即添加第一个 Cookie
+w.Header().Set("Set-Cookie", cookie1.String())
+//再添加一个 Cookie
+w.Header().Add("Set-Cookie", cookie2.String())
+}
+2) 以后每次发送请求浏览器都会携带着 Cookie
+3) 除了 Set 和 Add 方法之外，Go 还提供了一种更快捷的设置 Cookie 的方式，就是通过 net/http 库中的 SetCookie 方法
+func SetCookie方法
+func SetCookie(w ResponseWriter, cookie *Cookie)
+SetCookie在w的头域中添加Set-Cookie头，该HTTP头的值为cookie。
+
+将 1)中的代码进行修改
+func handler(w http.ResponseWriter, r *http.Request) {
+cookie1 := http.Cookie{
+Name: "user1",
+Value: "admin",
+HttpOnly: true,
+}
+cookie2 := http.Cookie{
+Name: "user2",
+Value: "superAdmin",
+HttpOnly: true,
+}
+http.SetCookie(w, &cookie1)
+http.SetCookie(w, &cookie2)
+}
+
+读取 Cookie 
+由于我们在发送请求时 Cookie 在请求头中，所以我们可以通过 Request 结构中的
+Header 字段来获取 Cookie
+1) 处理器端代码
+func handler(w http.ResponseWriter, r *http.Request) {
+//获取请求头中的 Cookie
+cookies := r.Header["Cookie"]
+fmt.Fprintln(w, cookies)
+}
+
+ 设置 Cookie 的有效时间 
+Cookie默认是会话级别的，当关闭浏览器之后Cookie将失效，我们可以通过Cookie
+结构的 MaxAge 字段设置 Cookie 的有效时间
+1) 处理器端代码
+func handler(w http.ResponseWriter, r *http.Request) {
+cookie := http.Cookie{
+Name: "user",
+Value: "persistAdmin",
+HttpOnly: true,
+MaxAge: 60,
+}
+//将 Cookie 发送给浏览器
+w.Header().Set("Set-Cookie", cookie.String())
+}
+
+Cookie 的用途 
+1) 广告推荐
+2) 免登录
+
+Session
+简介：
+使用 Cookie 有一个非常大的局限，就是如果 Cookie 很多，则无形的增加了客户端与服务端的数据传输量。而且由于浏览器对 Cookie 数量的限制，注定我们不能再Cookie 中保存过多的信息，于是 Session 出现。Session 的作用就是在服务器端保存一些用户的数据，然后传递给用户一个特殊的 Cookie，这个 Cookie 对应着这个服务器中的一个 Session，通过它就可以获取到保存用户信息的 Session，进而就知道是那个用户再发送请求。
+
+Session 的运行原理 
+1) 第一次向服务器发送请求时创建 Session，给它设置一个全球唯一的 ID（可以通过UUID 生成）
+2) 创建一个 Cookie，将 Cookie 的 Value 设置为 Session 的 ID 值，并将 Cookie 发送给浏览器
+3) 以后再发送请求浏览器就会携带着该 Cookie
+4) 服务器获取 Cookie 并根据它的 Value 值找到服务器中对应的 Session，也就知道了请求是那个用户发的
