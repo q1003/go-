@@ -17,6 +17,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "Hello World!", r.URL.Path)
 }
 
+
 func main() {
 	http.HandleFunc("/", handler)//它可以将一个带有正确签名（w http.ResponseWriter, r *http.Request）的函数 f 转换成一个带有方法 f 的 Handler。
 
