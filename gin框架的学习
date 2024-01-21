@@ -651,7 +651,7 @@ import (
 )
 
 var (
-	g errgroup.Group
+	g errgroup.Group		//errgroup.Group 是一个用于管理多个 goroutine 执行和错误处理的数据结构。
 )
 
 func router01() http.Handler {
@@ -700,7 +700,8 @@ func main() {
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
-   // 借助errgroup.Group或者自行开启两个goroutine分别启动两个服务
+   	// 借助errgroup.Group或者自行开启两个goroutine分别启动两个服务
+	//errgroup.Group 有一个方法 Go，可以用来启动一个新的 goroutine。传递给 Go 方法的函数应该返回一个 error 类型的值。errgroup.Group 会跟踪每个 Go 方法启动的 goroutine 的执行情况，并在任意一个 goroutine 返回了错误时，取消所有其他 goroutine 并返回该错误。
 	g.Go(func() error {
 		return server01.ListenAndServe()
 	})
