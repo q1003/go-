@@ -1,0 +1,282 @@
+Go语言项目中使用Zap日志库
+
+介绍：
+在许多Go语言项目中，我们需要一个好的日志记录器能够提供下面这些功能：
+1.能够将事件记录到文件中，而不是应用程序控制台。
+2.日志切割-能够根据文件大小、时间或间隔等来切割日志文件。
+3.支持不同的日志级别。例如INFO，DEBUG，ERROR等。
+4.能够打印基本信息，如调用文件/函数名和行号，日志时间等。
+
+Go语言默认的日志包
+实现Go Logger
+1.设置Logger
+func SetupLogger() {
+	logFileLocation, _ := os.OpenFile("/Users/q1mi/test.log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0744)
+	//通过os.OpenFile打开一个文件，即/Users/q1mi/test.log，并使用os.O_CREATE|os.O_APPEND|os.O_RDWR参数打开文件。这个参数指定了文件的打开方式，其中os.O_CREATE表示如果文件不存在则创建文件，os.O_APPEND表示以追加的方式写入文件，os.O_RDWR表示以读写方式打开文件。
+	log.SetOutput(logFileLocation)	//通过log.SetOutput函数将日志的输出目标设置为打开的文件对象logFileLocation。
+}
+
+2.使用Logger
+func simpleHttpGet(url string) {
+//http.Get 函数是 Go 标准库中提供的一个方便的方法，用于发送 HTTP GET 请求并返回相应的响应。它接收一个 URL 字符串作为参数，并返回两个值：一个 *http.Response 响应对象和一个 error 错误对象。返回的响应对象中包含了 HTTP 请求的结果，如响应状态码、响应头部和响应正文等信息。使用 http.Get 函数非常简单，只需传入要请求的 URL 并处理返回的响应就可以了。
+	resp, err := http.Get(url)	//http.Get 函数执行 HTTP GET 请求，并将结果保存在变量 resp 中。如果在执行请求时出现错误，则会记录一个包含错误信息的日志消息。
+	if err != nil {
+		log.Printf("Error fetching url %s : %s", url, err.Error())	//这里使用的是 log.Printf 函数来记录日志消息
+	} else {
+		log.Printf("Status Code for %s : %s", url, resp.Status)
+		resp.Body.Close()	//调用 resp.Body.Close() 关闭 HTTP 响应的主体，以确保释放与请求相关的资源。
+	}
+}
+
+3.Logger的运行
+func main() {
+	SetupLogger()
+	simpleHttpGet("www.google.com")
+	simpleHttpGet("http://www.google.com")
+}
+
+当我们执行上面的代码，我们能看到一个test.log文件被创建，下面的内容会被添加到这个日志文件中。
+2019/05/24 01:14:13 Error fetching url www.google.com : Get www.google.com: unsupported protocol scheme ""
+2019/05/24 01:14:14 Status Code for http://www.google.com : 200 OK
+
+Go Logger的优势和劣势
+优势：它最大的优点是使用非常简单。我们可以设置任何io.Writer作为日志记录输出并向其发送要写入的日志。
+劣势：
+1.仅限基本的日志级别
+	只有一个Print选项。不支持INFO/DEBUG等多个级别。
+
+2.对于错误日志，它有Fatal和Panic
+	Fatal日志通过调用os.Exit(1)来结束程序
+	Panic日志在写入日志消息之后抛出一个panic
+	但是它缺少一个ERROR日志级别，这个级别可以在不抛出panic或退出程序的情况下记录错误
+
+3.缺乏日志格式化的能力——例如记录调用者的函数名和行号，格式化日期和时间格式。等等。
+不提供日志切割的能力。
+
+
+Uber-go Zap：Zap是非常快的、结构化的，分日志级别的Go日志库。
+选择Uber-go Zap的原因：
+	1.它同时提供了结构化日志记录和printf风格的日志记录
+	2.它非常的快
+
+安装：go get -u go.uber.org/zap
+
+配置Zap Logger
+Zap提供了两种类型的日志记录器—Sugared Logger和Logger。
+在性能很好但不是很关键的上下文中，使用SugaredLogger。它比其他结构化日志记录包快4-10倍，并且支持结构化和printf风格的日志记录。在每一微秒和每一次内存分配都很重要的上下文中，使用Logger。它甚至比SugaredLogger更快，内存分配次数也更少，但它只支持强类型的结构化日志记录。
+
+1.Logger
+	通过调用zap.NewProduction()/zap.NewDevelopment()或者zap.Example()创建一个Logger。
+	上面的每一个函数都将创建一个logger。唯一的区别在于它将记录的信息不同。例如production logger默认记录调用函数信息、日期和时间等。
+	通过Logger调用Info/Error等。
+	默认情况下日志都会打印到应用程序的console界面。
+
+代码示例：
+var logger *zap.Logger
+
+func main() {
+	InitLogger()
+  defer logger.Sync()
+	simpleHttpGet("www.google.com")
+	simpleHttpGet("http://www.google.com")
+}
+
+func InitLogger() {
+	logger, _ = zap.NewProduction()
+}
+
+func simpleHttpGet(url string) {
+	resp, err := http.Get(url)
+	if err != nil {
+		logger.Error(
+			"Error fetching url..",
+			zap.String("url", url),
+			zap.Error(err))
+	} else {
+		logger.Info("Success..",
+			zap.String("statusCode", resp.Status),
+			zap.String("url", url))
+		resp.Body.Close()
+	}
+}
+
+在上面的代码中，我们首先创建了一个Logger，然后使用Info/ Error等Logger方法记录消息。
+日志记录器方法的语法是这样的：
+func (log *Logger) MethodXXX(msg string, fields ...Field) 
+
+其中MethodXXX是一个可变参数函数，可以是Info / Error/ Debug / Panic等。每个方法都接受一个消息字符串和任意数量的zapcore.Field场参数。每个zapcore.Field其实就是一组键值对参数。
+我们执行上面的代码会得到如下输出结果：
+{"level":"error","ts":1572159218.912792,"caller":"zap_demo/temp.go:25","msg":"Error fetching url..","url":"www.sogo.com","error":"Get www.sogo.com: unsupported protocol scheme \"\"","stacktrace":"main.simpleHttpGet\n\t/Users/q1mi/zap_demo/temp.go:25\nmain.main\n\t/Users/q1mi/zap_demo/temp.go:14\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:203"}
+{"level":"info","ts":1572159219.1227388,"caller":"zap_demo/temp.go:30","msg":"Success..","statusCode":"200 OK","url":"http://www.sogo.com"}
+
+2.Sugared Logger 
+使用Sugared Logger实现上面相同的功能
+	大部分的实现基本都相同。
+	惟一的区别是，我们通过调用主logger的. Sugar()方法来获取一个	SugaredLogger。
+	然后使用SugaredLogger以printf格式记录语句
+
+代码示例:
+var sugarLogger *zap.SugaredLogger
+
+func main() {
+	InitLogger()
+	defer sugarLogger.Sync()
+	simpleHttpGet("www.google.com")
+	simpleHttpGet("http://www.google.com")
+}
+
+func InitLogger() {
+  logger, _ := zap.NewProduction()
+	sugarLogger = logger.Sugar()
+}
+
+func simpleHttpGet(url string) {
+	sugarLogger.Debugf("Trying to hit GET request for %s", url)
+	resp, err := http.Get(url)
+	if err != nil {
+		sugarLogger.Errorf("Error fetching URL %s : Error = %s", url, err)
+	} else {
+		sugarLogger.Infof("Success! statusCode = %s for URL %s", resp.Status, url)
+		resp.Body.Close()
+	}
+}
+当你执行上面的代码会得到如下输出：
+{"level":"error","ts":1572159149.923002,"caller":"logic/temp2.go:27","msg":"Error fetching URL www.sogo.com : Error = Get www.sogo.com: unsupported protocol scheme \"\"","stacktrace":"main.simpleHttpGet\n\t/Users/q1mi/zap_demo/logic/temp2.go:27\nmain.main\n\t/Users/q1mi/zap_demo/logic/temp2.go:14\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:203"}
+{"level":"info","ts":1572159150.192585,"caller":"logic/temp2.go:29","msg":"Success! statusCode = 200 OK for URL http://www.sogo.com"}
+
+
+定制logger
+将日志写入文件而不是终端
+我们将使用zap.New(…)方法来手动传递所有配置，而不是使用像zap.NewProduction()这样的预置方法来创建logger。
+func New(core zapcore.Core, options ...Option) *Logger
+zapcore.Core需要三个配置——Encoder，WriteSyncer，LogLevel。
+
+//zap.NewProductionEncoderConfig() 函数会返回一个经过预配置的编码器配置对象，这意味着它会使用一组预定义的配置来生成一个适用于生产环境的编码器。这些预定义的配置通常包括日期格式、时间戳格式、级别键等。
+//zapcore.NewJSONEncoder 创建的编码器将日志消息编码为 JSON 格式，使得日志消息可以被结构化地记录和解析。JSON 编码器会根据编码器配置的格式，将日志字段和值转换为相应的 JSON 键值对。这样，你就可以方便地将日志消息存储在 JSON 文件、发送到 JSON 日志收集器或进行其他自定义处理。
+1.Encoder:编码器(如何写入日志)。我们将使用开箱即用的NewJSONEncoder()，并使用预先设置的ProductionEncoderConfig()。
+zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig())
+
+
+//zapcore.AddSync 函数中传入文件指针 file，该函数会将文件句柄转换为一个实现了 io.Writer 接口的对象，以便可以在 Zap 日志库中使用。zapcore.AddSync 函数是用于将具备同步能力的写入器转换为 io.Writer 的方法。
+2.WriterSyncer ：指定日志将写到哪里去。我们使用zapcore.AddSync()函数并且将打开的文件句柄传进去。
+file, _ := os.Create("./test.log")
+writeSyncer := zapcore.AddSync(file)
+
+3.Log Level：哪种级别的日志将被写入。
+
+我们将修改上述部分中的Logger代码，并重写InitLogger()方法。其余方法—main() /SimpleHttpGet()保持不变。
+func InitLogger() {
+	writeSyncer := getLogWriter()	//getLogWriter() 函数来获取日志写入器 writeSyncer，在 getLogWriter() 函数中，通过调用 os.Create 函数创建了一个名为 test.log 的日志文件，并将文件句柄转换为一个实现了 zapcore.WriteSyncer 接口的对象。
+	encoder := getEncoder()		//getEncoder() 函数来获取日志编码器 encoder。在 getEncoder() 函数中，创建了一个 JSON 编码器，并使用 zap.NewProductionEncoderConfig() 函数获取生产环境下的默认配置。
+	core := zapcore.NewCore(encoder, writeSyncer, zapcore.DebugLevel)	//用 zapcore.NewCore 函数，我们将编码器 encoder、写入器 writeSyncer，以及日志级别 zapcore.DebugLevel 组合成一个核心（core）实例 core。
+
+	logger := zap.New(core)
+	sugarLogger = logger.Sugar()
+}
+
+func getEncoder() zapcore.Encoder {
+	return zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig())
+}
+
+func getLogWriter() zapcore.WriteSyncer {
+	file, _ := os.Create("./test.log")
+	return zapcore.AddSync(file)
+}
+当使用这些修改过的logger配置调用上述部分的main()函数时，以下输出将打印在文件——test.log中。
+
+{"level":"debug","ts":1572160754.994731,"msg":"Trying to hit GET request for www.sogo.com"}
+{"level":"error","ts":1572160754.994982,"msg":"Error fetching URL www.sogo.com : Error = Get www.sogo.com: unsupported protocol scheme \"\""}
+{"level":"debug","ts":1572160754.994996,"msg":"Trying to hit GET request for http://www.sogo.com"}
+{"level":"info","ts":1572160757.3755069,"msg":"Success! statusCode = 200 OK for URL http://www.sogo.com"}
+
+4.将JSON Encoder更改为普通的Log Encoder
+我们需要将NewJSONEncoder()更改为NewConsoleEncoder()。
+return zapcore.NewConsoleEncoder(zap.NewProductionEncoderConfig())
+
+当使用这些修改过的logger配置调用上述部分的main()函数时，以下输出将打印在文件——test.log中。
+1.572161051846623e+09	debug	Trying to hit GET request for www.sogo.com
+1.572161051846828e+09	error	Error fetching URL www.sogo.com : Error = Get www.sogo.com: unsupported protocol scheme ""
+1.5721610518468401e+09	debug	Trying to hit GET request for http://www.sogo.com
+1.572161052068744e+09	info	Success! statusCode = 200 OK for URL http://www.sogo.com
+
+更改时间编码并添加调用者详细信息
+覆盖默认的ProductionConfig()，并进行以下更改:
+
+修改时间编码器
+在日志文件中使用大写字母记录日志级别
+func getEncoder() zapcore.Encoder {
+	encoderConfig := zap.NewProductionEncoderConfig()
+	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	//这个设置将会使用 ISO8601 格式来对日志时间进行编码。这种格式的例子是 2024-01-24T14:17:02.843Z，它包含了日期、时间和时区信息。
+	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+	//设置了 encoderConfig.EncodeLevel 为 zapcore.CapitalLevelEncoder。这个设置将会对日志级别进行编码时使用大写的格式，例如 INFO、DEBUG、WARN 等。
+	return zapcore.NewConsoleEncoder(encoderConfig)
+}
+接下来，我们将修改zap logger代码，添加将调用函数信息记录到日志中的功能。为此，我们将在zap.New(..)函数中添加一个Option。
+logger := zap.New(core, zap.AddCaller())
+当使用这些修改过的logger配置调用上述部分的main()函数时，以下输出将打印在文件——test.log中。
+
+2019-10-27T15:33:29.855+0800	DEBUG	logic/temp2.go:47	Trying to hit GET request for www.sogo.com
+2019-10-27T15:33:29.855+0800	ERROR	logic/temp2.go:50	Error fetching URL www.sogo.com : Error = Get www.sogo.com: unsupported protocol scheme ""
+2019-10-27T15:33:29.856+0800	DEBUG	logic/temp2.go:47	Trying to hit GET request for http://www.sogo.com
+2019-10-27T15:33:30.125+0800	INFO	logic/temp2.go:52	Success! statusCode = 200 OK for URL http://www.sogo.com
+
+AddCallerSkip
+当我们不是直接使用初始化好的logger实例记录日志，而是将其包装成一个函数等，此时日录日志的函数调用链会增加，想要获得准确的调用信息就需要通过AddCallerSkip函数来跳过。
+//zap.AddCaller() 是一个选项函数，用于将调用方的信息添加到日志输出中。调用方的信息包括文件名、行号和函数名。这对于日志记录和调试非常有用，可以帮助定位日志语句的调用位置。
+zap.AddCallerSkip(1) 是另一个选项函数，用于跳过一层调用栈，以获取更准确的调用方信息。这在你希望日志中显示调用方是调用logger函数的函数时非常有用。通过设置AddCallerSkip(1)，可以跳过logger函数的调用栈，直接获取其调用方的信息。
+
+logger := zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1))
+
+将日志输出到多个位置
+我们可以将日志同时输出到文件和终端。
+
+func getLogWriter() zapcore.WriteSyncer {
+	file, _ := os.Create("./test.log")
+	// 利用io.MultiWriter支持文件和终端两个输出目标
+	ws := io.MultiWriter(file, os.Stdout)	//通过 io.MultiWriter() 将文件和标准输出（终端）连接在一起，以支持将日志同时输出到文件和终端。
+	return zapcore.AddSync(ws)		//zapcore.AddSync() 将连接后的输出目标传递给 WriteSyncer
+}
+
+将err日志单独输出到文件
+有时候我们除了将全量日志输出到xx.log文件中之外，还希望将ERROR级别的日志单独输出到一个名为xx.err.log的日志文件中。我们可以通过以下方式实现。
+func InitLogger() {
+	encoder := getEncoder()
+	// test.log记录全量日志
+	logF, _ := os.Create("./test.log")
+	c1 := zapcore.NewCore(encoder, zapcore.AddSync(logF), zapcore.DebugLevel)
+	// test.err.log记录ERROR级别的日志
+	errF, _ := os.Create("./test.err.log")
+	c2 := zapcore.NewCore(encoder, zapcore.AddSync(errF), zap.ErrorLevel)
+	// 使用NewTee将c1和c2合并到core
+	core := zapcore.NewTee(c1, c2)
+	logger = zap.New(core, zap.AddCaller())
+}
+
+
+使用Lumberjack进行日志切割归档：这个日志程序中唯一缺少的就是日志切割归档功能。
+Zap本身不支持切割归档日志文件
+官方的说法是为了添加日志切割归档功能，我们将使用第三方库Lumberjack来实现。
+目前只支持按文件大小切割，原因是按时间切割效率低且不能保证日志数据不被破坏。
+
+安装：go get gopkg.in/natefinch/lumberjack.v2
+
+zap logger中加入Lumberjack
+要在zap中加入Lumberjack支持，我们需要修改WriteSyncer代码。我们将按照下面的代码修改getLogWriter()函数：
+func getLogWriter() zapcore.WriteSyncer {
+	lumberJackLogger := &lumberjack.Logger{
+		Filename:   "./test.log",
+		MaxSize:    10,
+		MaxBackups: 5,
+		MaxAge:     30,
+		Compress:   false,
+	}
+	return zapcore.AddSync(lumberJackLogger)
+}
+
+Lumberjack Logger采用以下属性作为输入:
+Filename: 日志文件的位置
+MaxSize：在进行切割之前，日志文件的最大大小（以MB为单位）
+MaxBackups：保留旧文件的最大个数
+MaxAges：保留旧文件的最大天数
+Compress：是否压缩/归档旧文件
