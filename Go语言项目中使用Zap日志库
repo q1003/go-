@@ -10,21 +10,28 @@ Go语言项目中使用Zap日志库
 Go语言默认的日志包
 实现Go Logger
 1.设置Logger
+// go语言原生的log日志
+// 设置日志记录器
 func SetupLogger() {
-	logFileLocation, _ := os.OpenFile("/Users/q1mi/test.log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0744)
-	//通过os.OpenFile打开一个文件，即/Users/q1mi/test.log，并使用os.O_CREATE|os.O_APPEND|os.O_RDWR参数打开文件。这个参数指定了文件的打开方式，其中os.O_CREATE表示如果文件不存在则创建文件，os.O_APPEND表示以追加的方式写入文件，os.O_RDWR表示以读写方式打开文件。
-	log.SetOutput(logFileLocation)	//通过log.SetOutput函数将日志的输出目标设置为打开的文件对象logFileLocation。
+	// 第一个参数是路径；第二个参数是位掩码，用于设置文件的打开模式
+	// os.O_CREATE如果指定文件不存在就创建这个文件;os.O_APPEND写入数据时会追加;os_RDWR文件以读写模式打开
+	// 第三个参数0744设置文件的权限
+	logFileLocation, _ := os.OpenFile("/bluebell/test.log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0744)
+	//设置输出目的地
+	log.SetOutput(logFileLocation)
 }
 
 2.使用Logger
 func simpleHttpGet(url string) {
-//http.Get 函数是 Go 标准库中提供的一个方便的方法，用于发送 HTTP GET 请求并返回相应的响应。它接收一个 URL 字符串作为参数，并返回两个值：一个 *http.Response 响应对象和一个 error 错误对象。返回的响应对象中包含了 HTTP 请求的结果，如响应状态码、响应头部和响应正文等信息。使用 http.Get 函数非常简单，只需传入要请求的 URL 并处理返回的响应就可以了。
-	resp, err := http.Get(url)	//http.Get 函数执行 HTTP GET 请求，并将结果保存在变量 resp 中。如果在执行请求时出现错误，则会记录一个包含错误信息的日志消息。
+	//使用http包中的Get函数向指定的URL发起GET请求
+	resp, err := http.Get(url)
 	if err != nil {
-		log.Printf("Error fetching url %s : %s", url, err.Error())	//这里使用的是 log.Printf 函数来记录日志消息
+		log.Printf("Error fetching url %s : %s", url, err.Error())
 	} else {
+		//resp.Status表示HTTP响应的状态码
 		log.Printf("Status Code for %s : %s", url, resp.Status)
-		resp.Body.Close()	//调用 resp.Body.Close() 关闭 HTTP 响应的主体，以确保释放与请求相关的资源。
+		//用于关闭响应体，以释放资源
+		resp.Body.Close()
 	}
 }
 
@@ -34,10 +41,6 @@ func main() {
 	simpleHttpGet("www.google.com")
 	simpleHttpGet("http://www.google.com")
 }
-
-当我们执行上面的代码，我们能看到一个test.log文件被创建，下面的内容会被添加到这个日志文件中。
-2019/05/24 01:14:13 Error fetching url www.google.com : Get www.google.com: unsupported protocol scheme ""
-2019/05/24 01:14:14 Status Code for http://www.google.com : 200 OK
 
 Go Logger的优势和劣势
 优势：它最大的优点是使用非常简单。我们可以设置任何io.Writer作为日志记录输出并向其发送要写入的日志。
@@ -76,6 +79,10 @@ var logger *zap.Logger
 
 func main() {
 	InitLogger()
+//logger.Sync() 是用于同步日志记录器的方法。在使用日志记录器进行日志输出时，
+//有时候需要确保日志消息被立即写入到目标输出，而不是等待缓冲区填满或者其他条
+//件满足才写入。这时就可以使用 Sync() 方法来强制将所有缓冲的日志消息写入到目
+//标输出。
   defer logger.Sync()
 	simpleHttpGet("www.google.com")
 	simpleHttpGet("http://www.google.com")
@@ -168,6 +175,7 @@ writeSyncer := zapcore.AddSync(file)
 func InitLogger() {
 	writeSyncer := getLogWriter()	//getLogWriter() 函数来获取日志写入器 writeSyncer，在 getLogWriter() 函数中，通过调用 os.Create 函数创建了一个名为 test.log 的日志文件，并将文件句柄转换为一个实现了 zapcore.WriteSyncer 接口的对象。
 	encoder := getEncoder()		//getEncoder() 函数来获取日志编码器 encoder。在 getEncoder() 函数中，创建了一个 JSON 编码器，并使用 zap.NewProductionEncoderConfig() 函数获取生产环境下的默认配置。
+	//zapcore.NewCore 函数创建一个新的核心日志记录器，该函数需要传入三个参数：编码器 encoder、日志写入目标 writeSyncer 和日志记录的级别
 	core := zapcore.NewCore(encoder, writeSyncer, zapcore.DebugLevel)	//用 zapcore.NewCore 函数，我们将编码器 encoder、写入器 writeSyncer，以及日志级别 zapcore.DebugLevel 组合成一个核心（core）实例 core。
 
 	logger := zap.New(core)
@@ -224,7 +232,7 @@ logger := zap.New(core, zap.AddCaller())
 AddCallerSkip
 当我们不是直接使用初始化好的logger实例记录日志，而是将其包装成一个函数等，此时日录日志的函数调用链会增加，想要获得准确的调用信息就需要通过AddCallerSkip函数来跳过。
 //zap.AddCaller() 是一个选项函数，用于将调用方的信息添加到日志输出中。调用方的信息包括文件名、行号和函数名。这对于日志记录和调试非常有用，可以帮助定位日志语句的调用位置。
-zap.AddCallerSkip(1) 是另一个选项函数，用于跳过一层调用栈，以获取更准确的调用方信息。这在你希望日志中显示调用方是调用logger函数的函数时非常有用。通过设置AddCallerSkip(1)，可以跳过logger函数的调用栈，直接获取其调用方的信息。
+//zap.AddCallerSkip(1) 是另一个选项函数，用于跳过一层调用栈，以获取更准确的调用方信息。这在你希望日志中显示调用方是调用logger函数的函数时非常有用。通过设置AddCallerSkip(1)，可以跳过logger函数的调用栈，直接获取其调用方的信息。
 
 logger := zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1))
 
