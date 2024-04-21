@@ -1,0 +1,377 @@
+Viper
+安装
+go get github.com/spf13/viper
+
+介绍
+Viper是适用于Go应用程序（包括Twelve-Factor App）的完整配置解决方案。它被设计用于在应用程序中工作，并且可以处理所有类型的配置需求和格式。它支持以下特性：
+设置默认值
+从JSON、TOML、YAML、HCL、envfile和Java properties格式的配置文件读取配置信息
+实时监控和重新读取配置文件（可选）
+从环境变量中读取
+从远程配置系统（etcd或Consul）读取并监控配置变化
+从命令行参数读取配置
+从buffer读取配置
+显式配置值
+
+使用Viper的原因
+Viper能够为你执行下列操作：
+查找、加载和反序列化JSON、TOML、YAML、HCL、INI、envfile和Java properties格式的配置文件。
+提供一种机制为你的不同配置选项设置默认值。
+提供一种机制来通过命令行参数覆盖指定选项的值。
+提供别名系统，以便在不破坏现有代码的情况下轻松重命名参数。
+当用户提供了与默认值相同的命令行或配置文件时，可以很容易地分辨出它们之间的区别。
+
+Viper会按照下面的优先级。每个项目的优先级都高于它下面的项目:
+显示调用Set设置值
+命令行参数（flag）
+环境变量
+配置文件
+key/value存储
+默认值
+注意： 目前Viper配置的键（Key）是大小写不敏感的。
+
+设置默认值
+一个好的配置系统应该支持默认值。键不需要默认值，但如果没有通过配置文件、环境变量、远程配置或命令行标志（flag）设置键，则默认值非常有用。
+eg：
+//这段代码设置了三个默认值：
+//"ContentDir"：默认的内容目录为"content"
+viper.SetDefault("ContentDir", "content")
+//"LayoutDir"：默认的布局目录为"layouts"
+viper.SetDefault("LayoutDir", "layouts")
+//"Taxonomies"：默认的分类方式为map[string]string{"tag": "tags", "category": "categories"}，这是指网站使用的分类（或标签）的设置，其中tag对应的存储目录是tags，而category对应的存储目录是categories
+viper.SetDefault("Taxonomies", map[string]string{"tag": "tags", "category": "categories"})
+
+读取配置文件
+Viper需要最少知道在哪里查找配置文件的配置。Viper支持JSON、TOML、YAML、HCL、envfile和Java properties格式的配置文件。Viper可以搜索多个路径，但目前单个Viper实例只支持单个配置文件。
+Viper不默认任何配置搜索路径，将默认决策留给应用程序。
+eg：
+viper.SetConfigFile("./config.yaml") //设置配置文件的路径为当前目录下的config.yaml文件。这表示要读取的配置文件在当前工作目录下，并且文件名为config.yaml。
+viper.SetConfigName("config") // 设置配置文件的名称为config。这告诉Viper在查找配置文件时使用的基本文件名。实际上，Viper将在各个指定的路径中搜索名为config加上扩展名的文件。
+viper.SetConfigType("yaml") //设置配置文件的类型为YAML格式。这表示Viper将尝试将配置文件解析为YAML格式的内容。
+viper.AddConfigPath("/etc/appname/")   // 向Viper添加一个配置文件搜索路径/etc/appname/。这表示Viper在查找配置文件时会优先搜索该路径。
+viper.AddConfigPath("$HOME/.appname")  // 向Viper添加另一个配置文件搜索路径$HOME/.appname。这表示Viper还会搜索用户的家目录下的.appname文件夹中的配置文件。
+viper.AddConfigPath(".")               // 向Viper添加当前工作目录作为配置文件搜索路径。这表示Viper会在当前工作目录下搜索配置文件。
+err := viper.ReadInConfig() // 
+if err != nil { // 处理读取配置文件的错误
+	panic(fmt.Errorf("Fatal error config file: %s \n", err))
+}
+
+在加载配置文件出错时，我们可以像下面这样处理找不到配置文件的特定情况：
+if err := viper.ReadInConfig(); err != nil {
+    if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+        // 配置文件未找到错误；如果需要可以忽略
+    } else {
+        // 配置文件被找到，但产生了另外的错误
+    }
+}
+
+写入配置文件
+WriteConfig - 将当前的viper配置写入预定义的路径并覆盖（如果存在的话）。如果没有预定义的路径，则报错。
+SafeWriteConfig - 将当前的viper配置写入预定义的路径。如果没有预定义的路径，则报错。如果存在，将不会覆盖当前的配置文件。
+WriteConfigAs - 将当前的viper配置写入给定的文件路径。将覆盖给定的文件(如果它存在的话)。
+SafeWriteConfigAs - 将当前的viper配置写入给定的文件路径。不会覆盖给定的文件(如果它存在的话)。
+
+eg：
+viper.WriteConfig() // 将当前的配置写入到上一次通过viper.SetConfigFile()设置的配置文件路径中。如果之前没有设置过配置文件路径，则会返回错误。
+viper.SafeWriteConfig()  //与WriteConfig()类似，但是在写入配置文件之前会先检查文件是否存在，如果文件已经存在，则不会覆盖，而是返回一个错误。
+viper.WriteConfigAs("/path/to/my/.config")  //这行代码将当前的配置写入到指定路径/path/to/my/.config中。如果文件已存在，则会被覆盖。
+viper.SafeWriteConfigAs("/path/to/my/.config") //与WriteConfigAs()类似，但是在写入配置文件之前会先检查文件是否存在，如果文件已经存在，则不会覆盖，而是返回一个错误。
+viper.SafeWriteConfigAs("/path/to/my/.other_config")
+
+监控并重新读取配置文件
+viper驱动的应用程序可以在运行时读取配置文件的更新，而不会错过任何消息。
+只需告诉viper实例watchConfig。可选地，你可以为Viper提供一个回调函数，以便在每次发生更改时运行。
+确保在调用WatchConfig()之前添加了所有的配置路径。
+eg：
+viper.WatchConfig()  //这行代码启动了一个后台的goroutine来监视配置文件的变化。一旦配置文件发生变化，Viper就会重新加载配置并触发相应的事件。
+viper.OnConfigChange(func(e fsnotify.Event) {
+  // 配置文件发生变更之后会调用的回调函数
+	fmt.Println("Config file changed:", e.Name)
+})
+
+从io.Reader读取配置
+Viper预先定义了许多配置源，如文件、环境变量、标志和远程K/V存储，但其实可以不受其约束。还可以实现自己所需的配置源并将其提供给viper。
+eg：
+viper.SetConfigType("yaml") 
+//这段代码创建了一个YAML格式的字节数组，包含了一些示例数据。
+var yamlExample = []byte(`
+Hacker: true
+name: steve
+hobbies:
+- skateboarding
+- snowboarding
+- go
+clothing:
+  jacket: leather
+  trousers: denim
+age: 35
+eyes : brown
+beard: true
+`)
+//这行代码使用bytes.NewBuffer(yamlExample)将字节数组转换为一个缓冲区
+//调用viper.ReadConfig()从该缓冲区读取YAML配置。这使得Viper能够将配置加载到内存中。
+viper.ReadConfig(bytes.NewBuffer(yamlExample)) 
+viper.Get("name") // 这里会得到 "steve"
+
+覆盖设置
+viper.Set("Verbose", true)
+viper.Set("LogFile", LogFile)
+
+注册使用别名
+别名允许多个键引用单个值
+viper.RegisterAlias("loud", "Verbose")  // 注册别名（此处loud和Verbose建立了别名）
+viper.Set("verbose", true) // 结果与下一行相同
+viper.Set("loud", true)   // 结果与前一行相同
+viper.GetBool("loud") // true
+viper.GetBool("verbose") // true
+
+使用环境变量
+Viper完全支持环境变量。这使Twelve-Factor App开箱即用。有五种方法可以帮助与ENV协作:
+
+AutomaticEnv()
+BindEnv(string...) : error
+SetEnvPrefix(string)
+SetEnvKeyReplacer(string...) *strings.Replacer
+AllowEmptyEnv(bool)
+使用ENV变量时，务必要意识到Viper将ENV变量视为区分大小写。
+Viper提供了一种机制来确保ENV变量是惟一的。通过使用SetEnvPrefix，你可以告诉Viper在读取环境变量时使用前缀。BindEnv和AutomaticEnv都将使用这个前缀。
+BindEnv使用一个或两个参数。第一个参数是键名称，第二个是环境变量的名称。环境变量的名称区分大小写。如果没有提供ENV变量名，那么Viper将自动假设ENV变量与
+以下格式匹配：前缀+ “_” +键名全部大写。当你显式提供ENV变量名（第二个参数）时，它 不会 自动添加前缀。例如，如果第二个参数是“id”，Viper将查找环境变量“ID”。
+在使用ENV变量时，需要注意的一件重要事情是，每次访问该值时都将读取它。Viper在调用BindEnv时不固定该值。
+AutomaticEnv是一个强大的助手，尤其是与SetEnvPrefix结合使用时。调用时，Viper会在发出viper.Get请求时随时检查环境变量。它将应用以下规则。它将检查环境变量的名称是
+否与键匹配（如果设置了EnvPrefix）。
+SetEnvKeyReplacer允许你使用strings.Replacer对象在一定程度上重写 Env 键。如果你希望在Get()调用中使用-或者其他什么符号，但是环境变量里使用_分隔符，那么这个功能是
+非常有用的。可以在viper_test.go中找到它的使用示例。
+或者，你可以使用带有NewWithOptions工厂函数的EnvKeyReplacer。与SetEnvKeyReplacer不同，它接受StringReplacer接口，允许你编写自定义字符串替换逻辑。
+默认情况下，空环境变量被认为是未设置的，并将返回到下一个配置源。若要将空环境变量视为已设置，请使用AllowEmptyEnv方法。
+
+eg：
+//这行代码设置了环境变量的前缀为"spf"。Viper会自动将设置的前缀转换为大写，因此实际上会搜索前缀为"SPF_"的环境变量。
+//设置前缀是为了避免环境变量名冲突，确保只有特定前缀的环境变量被视为配置项。
+SetEnvPrefix("spf") 
+//这行代码将配置项"id"绑定到环境变量"SPF_ID"。通过SetEnvPrefix设置了前缀后，"id"自动关联到"SPF_ID"这个环境变量。
+//这意味着无需显式指定环境变量的全名，Viper会根据设置的前缀和指定的配置项名来定位环境变量。
+BindEnv("id")
+//这行代码在操作系统级别设置环境变量"SPF_ID"的值为"13"。这通常在应用程序外部完成，如通过脚本或在启动前的配置中设置。
+os.Setenv("SPF_ID", "13") // 通常是在应用程序之外完成的
+//这行代码从Viper的配置中获取"id"的值。由于"id"被绑定到环境变量"SPF_ID"，并且该环境变量已被设置为"13"，因此调用Get("id")将返回值"13"。
+id := Get("id") // 13
+
+使用flags
+Viper 具有绑定到标志的能力。具体来说，Viper支持Cobra库中使用的Pflag。
+与BindEnv类似，该值不是在调用绑定方法时设置的，而是在访问该方法时设置的。这意味着你可以根据需要尽早进行绑定，即使在init()函数中也是如此。
+注意：对于单个标志，BindPFlag()方法提供此功能。
+eg：
+//这行代码定义了一个名为"port"的命令行标志。这个标志是一个整数类型的标志，表示应用程序运行的端口号。如果用户在运行应用程序时没有提供端口参数，则默认值为1138。
+//这个标志还包含了一个描述，即"Port to run Application server on"，这个描述会在用户查看应用程序的帮助信息时显示出来。
+serverCmd.Flags().Int("port", 1138, "Port to run Application server on")
+//这行代码将命令行标志"port"与Viper配置中的"port"项进行绑定。这意味着当用户在命令行中指定了"port"参数时，Viper会自动将其值存储到配置中的"port"项中。这样做的好处是，
+//应用程序可以在不同的配置源中（如命令行参数、环境变量、配置文件等）获取到相同的配置项值，并且Viper会自动处理这些来源之间的优先级和覆盖关系。
+viper.BindPFlag("port", serverCmd.Flags().Lookup("port"))
+
+可以绑定一组现有的pflags （pflag.FlagSet）
+eg：
+pflag.Int("flagname", 1234, "help message for flagname")  //行代码定义了一个名为"flagname"的命令行标志。
+pflag.Parse()  //这行代码用于解析命令行参数，并将其存储在pflag的CommandLine对象中。
+viper.BindPFlags(pflag.CommandLine)  //这行代码将pflag.CommandLine中的标志参数绑定到Viper配置中。这意味着当用户在命令行中指定了标志参数时，Viper会自动将其值存储到相应的配置项中。
+// 这行代码从Viper配置中获取名为"flagname"的配置项的整数值。由于之前已经通过BindPFlags将pflag的标志参数与Viper配置绑定
+//因此可以直接从Viper中获取这个值。而不是从pflag检索值
+i := viper.GetInt("flagname")
+
+在 Viper 中使用 pflag 并不阻碍其他包中使用标准库中的 flag 包。pflag 包可以通过导入这些 flags 来处理flag包定义的flags。这是通过调用pflag包提供的便利函数AddGoFlagSet()来实现的。
+eg：
+flag.Int("flagname", 1234, "help message for flagname")
+//这段代码将 flag.CommandLine（标准库 flag 包的命令行参数集合）添加到了 pflag.CommandLine 中。这是因为在一些场景下，一些库或者框架可能使用标准库的 flag 包来处理命令行参数
+// 而另一些则使用 pflag 包。为了保持一致性并确保这两个库之间的互操作性，你可以将 flag.CommandLine 中的参数添加到 pflag.CommandLine 中，使得两者可以共享命令行参数，从而实现统一的命令行参数处理。
+pflag.CommandLine.AddGoFlagSet(flag.CommandLine) 
+pflag.Parse()
+viper.BindPFlags(pflag.CommandLine)
+i := viper.GetInt("flagname") // 从 viper 检索值
+
+flag接口
+如果你不使用Pflag，Viper 提供了两个Go接口来绑定其他 flag 系统。FlagValue表示单个flag。
+eg：
+type myFlag struct {}
+func (f myFlag) HasChanged() bool { return false }  //这是 pflag.Value 接口的一个方法，用于检查标志值是否发生了变化。
+func (f myFlag) Name() string { return "my-flag-name" }  //这个方法返回标志的名称。
+func (f myFlag) ValueString() string { return "my-flag-value" }  //这个方法返回标志的字符串表示形式。
+func (f myFlag) ValueType() string { return "string" }  //这个方法返回标志值的类型。
+
+
+从viper中获取值
+在Viper中，有几种方法可以根据值的类型获取值。存在以下功能和方法:
+
+Get(key string) : interface{}
+GetBool(key string) : bool
+IsSet(key string) : bool
+GetFloat64(key string) : float64
+GetInt(key string) : int
+GetIntSlice(key string) : []int
+GetString(key string) : string
+GetStringMap(key string) : map[string]interface{}
+GetStringMapString(key string) : map[string]string
+GetStringSlice(key string) : []string
+GetTime(key string) : time.Time
+GetDuration(key string) : time.Duration
+AllSettings() : map[string]interface{}
+需要认识到的一件重要事情是，每一个Get方法在找不到值的时候都会返回零值。为了检查给定的键是否存在，提供了IsSet()方法。
+
+访问嵌套的键值
+访问器方法也接受深度嵌套键的格式化路径。例如，如果加载下面的JSON文件：
+{
+    "host": {
+        "address": "localhost",
+        "port": 5799
+    },
+    "datastore": {
+        "metric": {
+            "host": "127.0.0.1",
+            "port": 3099
+        },
+        "warehouse": {
+            "host": "198.0.0.1",
+            "port": 2112
+        }
+    }
+}
+Viper可以通过传入.分隔的路径来访问嵌套字段：
+GetString("datastore.metric.host") // (返回 "127.0.0.1")
+这遵守上面建立的优先规则；搜索路径将遍历其余配置注册表，直到找到为止。(译注：因为Viper支持从多种配置来源，例如磁盘上的配置文件>命令行标志位>环境变量>远程Key/Value存储>默认值，
+我们在查找一个配置的时候如果在当前配置源中没找到，就会继续从后续的配置源查找，直到找到为止。)
+例如，在给定此配置文件的情况下，datastore.metric.host和datastore.metric.port均已定义（并且可以被覆盖）。如果另外在默认值中定义了datastore.metric.protocol，Viper也会找到它。
+最后，如果存在与分隔的键路径匹配的键，则返回其值。例如：
+{
+    "datastore.metric.host": "0.0.0.0",
+    "host": {
+        "address": "localhost",
+        "port": 5799
+    },
+    "datastore": {
+        "metric": {
+            "host": "127.0.0.1",
+            "port": 3099
+        },
+        "warehouse": {
+            "host": "198.0.0.1",
+            "port": 2112
+        }
+    }
+}
+GetString("datastore.metric.host") // 返回 "0.0.0.0"
+然而，如果datastore.metric被直接赋值覆盖（被flag，环境变量，set()方法等等…），那么datastore.metric的所有子键都将变为未定义状态，它们被高优先级配置级别“遮蔽”（shadowed）了。
+
+反序列化
+可以选择将所有或特定的值解析到结构体、map等。
+有两种方法可以做到这一点：
+Unmarshal(rawVal interface{}) : error
+UnmarshalKey(key string, rawVal interface{}) : error
+eg：
+type config struct {
+	Port int
+	Name string
+	PathMap string `mapstructure:"path_map"`
+}
+var C config
+err := viper.Unmarshal(&C)
+if err != nil {
+	t.Fatalf("unable to decode into struct, %v", err)
+}
+
+序列化成字符串
+你可能需要将viper中保存的所有设置序列化到一个字符串中，而不是将它们写入到一个文件中。你可以将自己喜欢的格式的序列化器与AllSettings()返回的配置一起使用。
+c := viper.AllSettings()  //这行代码获取了Viper配置中的所有设置，并将其存储在变量 c 中。这个 AllSettings() 方法返回一个 map[string]interface{} 类型的映射，其中包含了所有的配置项及其对应的值。
+    bs, err := yaml.Marshal(c)
+    if err != nil {
+        log.Fatalf("unable to marshal config to YAML: %v", err)
+    }
+
+
+Viper的使用案例：
+./conf/config.yaml配置文件，内容如下：
+port: 8080
+version: "v1.2.3"
+
+直接使用viper管理配置
+这里演示如何在gin框架搭建的web项目中使用viper，使用viper加载配置文件中的信息，并在代码中直接使用viper.GetXXX()方法获取对应的配置值。
+package main
+
+import (
+	"fmt"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+	"github.com/spf13/viper"
+)
+
+func main() {
+	viper.SetConfigFile("./conf/config.yaml") // 指定配置文件路径
+	err := viper.ReadInConfig()        // 读取配置信息
+	if err != nil {                    // 读取配置信息失败
+		panic(fmt.Errorf("Fatal error config file: %s \n", err))
+	}
+
+	// 监控配置文件变化
+	viper.WatchConfig()
+
+	r := gin.Default()
+	// 访问/version的返回值会随配置文件的变化而变化
+	r.GET("/version", func(c *gin.Context) {
+		c.String(http.StatusOK, viper.GetString("version"))
+	})
+
+	if err := r.Run(
+		fmt.Sprintf(":%d", viper.GetInt("port"))); err != nil {
+		panic(err)
+	}
+}
+
+使用结构体变量保存配置信息
+package main
+
+import (
+	"fmt"
+	"net/http"
+
+	"github.com/fsnotify/fsnotify"
+
+	"github.com/gin-gonic/gin"
+	"github.com/spf13/viper"
+)
+
+type Config struct {
+	Port    int    `mapstructure:"port"`
+	Version string `mapstructure:"version"`
+}
+
+var Conf = new(Config)
+
+func main() {
+	viper.SetConfigFile("./conf/config.yaml") // 指定配置文件路径
+	err := viper.ReadInConfig()               // 读取配置信息
+	if err != nil {                           // 读取配置信息失败
+		panic(fmt.Errorf("Fatal error config file: %s \n", err))
+	}
+	// 将读取的配置信息保存至全局变量Conf
+	if err := viper.Unmarshal(Conf); err != nil {
+		panic(fmt.Errorf("unmarshal conf failed, err:%s \n", err))
+	}
+	// 监控配置文件变化
+	viper.WatchConfig()
+	// 注意！！！配置文件发生变化后要同步到全局变量Conf
+	viper.OnConfigChange(func(in fsnotify.Event) {
+		fmt.Println("配置文件被人修改啦")
+		if err := viper.Unmarshal(Conf); err != nil {
+			panic(fmt.Errorf("unmarshal conf failed, err:%s \n", err))
+		}
+	})
+
+	r := gin.Default()
+	// 访问/version的返回值会随配置文件的变化而变化
+	r.GET("/version", func(c *gin.Context) {
+		c.String(http.StatusOK, Conf.Version)
+	})
+
+	if err := r.Run(fmt.Sprintf(":%d", Conf.Port)); err != nil {
+		panic(err)
+	}
+}
